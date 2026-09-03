@@ -151,7 +151,7 @@ class HostAdapter:
             digest,rel=m.groups(); rel_path=Path(rel)
             if rel_path.is_absolute() or '..' in rel_path.parts or rel in entries: raise FailClosed('CANDIDATE_MANIFEST_PATH_INVALID',65)
             target=root/rel_path
-            try: target.lstat()
+            try: st=target.lstat()
             except FileNotFoundError: raise FailClosed('CANDIDATE_FILE_MISSING',65)
             if target.is_symlink() or not target.is_file(): raise FailClosed('CANDIDATE_FILE_TYPE_INVALID',65)
             if sha256_file(target)!=digest: raise FailClosed('CANDIDATE_FILE_HASH_MISMATCH',65)
