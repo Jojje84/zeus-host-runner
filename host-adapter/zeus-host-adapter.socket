@@ -1,0 +1,14 @@
+[Unit]
+Description=Zeus v3.1 bounded host-adapter socket
+
+[Socket]
+ListenStream=/run/zeus-host-adapter/adapter.sock
+SocketUser=root
+SocketGroup=zeus-host-runner
+SocketMode=0660
+DirectoryMode=0750
+RemoveOnStop=yes
+Accept=no
+
+[Install]
+WantedBy=sockets.target
