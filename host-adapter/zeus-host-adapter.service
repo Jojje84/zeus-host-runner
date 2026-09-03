@@ -1,0 +1,32 @@
+[Unit]
+Description=Zeus Host Adapter (bounded host authority)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/etc/zeus-host-adapter.conf
+ExecStart=/usr/bin/python3 /usr/local/libexec/zeus_host_adapter.py
+Restart=on-failure
+RestartSec=2s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/run/zeus-host-adapter /var/lib/zeus-host-adapter
+ReadOnlyPaths=/home/umbrel/umbrel/app-data/openclaw/data/zeus-v31-umbrel-candidates-20260902
+
+[Install]
+WantedBy=multi-user.target
