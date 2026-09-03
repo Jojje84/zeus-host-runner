@@ -17,6 +17,8 @@ on:
 permissions:
   contents: read
   packages: write
+env:
+  REGISTRY_IMAGE: ghcr.io/jojje84/zeus-host-runner
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -56,7 +58,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/zeus-host-runner:sha-${{ github.sha }}
+          tags: ${{ env.REGISTRY_IMAGE }}:sha-${{ github.sha }}
           build-args: |
             RUNNER_UID=${{ inputs.runner_uid }}
             RUNNER_GID=${{ inputs.runner_gid }}
@@ -69,8 +71,10 @@ jobs:
           REGISTRY_DIGEST: ${{ steps.build.outputs.digest }}
           SOURCE_COMMIT: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          REGISTRY_IMAGE: ${{ env.REGISTRY_IMAGE }}
         run: |
           set -Eeuo pipefail
           [[ "$IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$REGISTRY_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-          printf 'BOOTSTRAP_RUN_ID=%s\nGITHUB_RUN_ID=%s\nIMAGE_ID=%s\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\nRUNNER_UID=%s\nRUNNER_GID=%s\n' "$BOOTSTRAP_RUN_ID" "$GITHUB_RUN_ID" "$IMAGE_ID" "$REGISTRY_DIGEST" "$SOURCE_COMMIT" "$RUNNER_UID" "$RUNNER_GID"
+          [[ "$REGISTRY_IMAGE" == "ghcr.io/jojje84/zeus-host-runner" ]]
+          printf 'BOOTSTRAP_RUN_ID=%s\nGITHUB_RUN_ID=%s\nIMAGE_ID=%s\nREGISTRY_IMAGE=%s\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\nRUNNER_UID=%s\nRUNNER_GID=%s\n' "$BOOTSTRAP_RUN_ID" "$GITHUB_RUN_ID" "$IMAGE_ID" "$REGISTRY_IMAGE" "$REGISTRY_DIGEST" "$SOURCE_COMMIT" "$RUNNER_UID" "$RUNNER_GID"
