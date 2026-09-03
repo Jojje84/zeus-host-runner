@@ -2,6 +2,10 @@ name: build-and-publish-zeus-host-runner
 on:
   workflow_dispatch:
     inputs:
+      bootstrap_run_id:
+        description: "Bootstrap RUN_ID from the host operator"
+        required: true
+        type: string
       runner_uid:
         description: "Verified non-privileged host Runner UID"
         required: true
@@ -26,13 +30,15 @@ jobs:
           set -Eeuo pipefail
           test "$(sha256sum ARTIFACT-HASHES.sha256 | awk '{print $1}')" = "c60eed10f328fecf24fc233bddd7856e7c7244e045bebb13bd893b91a97c82e9"
           sha256sum -c ARTIFACT-HASHES.sha256
-      - name: Validate identity inputs
+      - name: Validate identity and bootstrap inputs
         shell: bash
         env:
+          BOOTSTRAP_RUN_ID: ${{ inputs.bootstrap_run_id }}
           RUNNER_UID: ${{ inputs.runner_uid }}
           RUNNER_GID: ${{ inputs.runner_gid }}
         run: |
           set -Eeuo pipefail
+          [[ "$BOOTSTRAP_RUN_ID" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9]+$ ]]
           [[ "$RUNNER_UID" =~ ^[1-9][0-9]{2,4}$ && "$RUNNER_GID" =~ ^[1-9][0-9]{2,4}$ ]]
           test "$RUNNER_UID" -ge 1000
           test "$RUNNER_GID" -ge 1000
@@ -55,7 +61,16 @@ jobs:
             RUNNER_UID=${{ inputs.runner_uid }}
             RUNNER_GID=${{ inputs.runner_gid }}
       - name: Emit immutable image evidence
+        env:
+          BOOTSTRAP_RUN_ID: ${{ inputs.bootstrap_run_id }}
+          RUNNER_UID: ${{ inputs.runner_uid }}
+          RUNNER_GID: ${{ inputs.runner_gid }}
+          IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          REGISTRY_DIGEST: ${{ steps.build.outputs.digest }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           set -Eeuo pipefail
-          test -n "${{ steps.build.outputs.digest }}"
-          printf 'RUN_ID=%s\nIMAGE_ID=UNAVAILABLE_IN_ACTIONS\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\n' "${{ github.run_id }}" "${{ steps.build.outputs.digest }}" "${{ github.sha }}"
+          [[ "$IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$REGISTRY_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'BOOTSTRAP_RUN_ID=%s\nGITHUB_RUN_ID=%s\nIMAGE_ID=%s\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\nRUNNER_UID=%s\nRUNNER_GID=%s\n' "$BOOTSTRAP_RUN_ID" "$GITHUB_RUN_ID" "$IMAGE_ID" "$REGISTRY_DIGEST" "$SOURCE_COMMIT" "$RUNNER_UID" "$RUNNER_GID"
