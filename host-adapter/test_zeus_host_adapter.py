@@ -36,8 +36,14 @@ class Tests(unittest.TestCase):
     def setUp(self):
         self.td=tempfile.TemporaryDirectory(); self.root=Path(self.td.name); self.cfg=FakeCfg(self.root)
         ctx=self.cfg.candidate_root/'zeus-rescue'/'build-context'; ctx.mkdir(parents=True)
-        (self.cfg.candidate_root/'ARTIFACT-HASHES.sha256').write_text('manifest\n')
-        for name in ['BUILD-METADATA.json','Dockerfile','operations.allowlist','rescue-controller.js']: (ctx/name).write_text(name+'\n')
+        files=[]
+        for name in ['BUILD-METADATA.json','Dockerfile','operations.allowlist','rescue-controller.js']:
+            f=ctx/name; f.write_text(name+'\n'); files.append(f)
+        sentinel=self.cfg.candidate_root/'sentinel.txt'; sentinel.write_text('locked\n'); files.append(sentinel)
+        lines=[]
+        for f in files:
+            rel=f.relative_to(self.cfg.candidate_root).as_posix(); lines.append(f'{zha.sha256_file(f)}  {rel}')
+        (self.cfg.candidate_root/'ARTIFACT-HASHES.sha256').write_text('\n'.join(lines)+'\n')
         self.fake=FakeRun(); self.state=zha.StateStore(self.cfg); self.adapter=zha.HostAdapter(self.cfg,self.state,runner=self.fake)
     def tearDown(self): self.td.cleanup()
     def test_preflight_pass(self): self.assertEqual(self.adapter.execute(request(self.root))['status'],'PASS')
@@ -47,6 +53,17 @@ class Tests(unittest.TestCase):
     def test_wrong_candidate_fails(self):
         q=request(self.root); q['candidate_root']='/tmp/nope'
         with self.assertRaises(zha.FailClosed): self.adapter.execute(q)
+    def test_manifest_bound_file_tamper_fails(self):
+        q=request(self.root); (self.cfg.candidate_root/'sentinel.txt').write_text('tampered\n')
+        with self.assertRaises(zha.FailClosed) as cm: self.adapter.execute(q)
+        self.assertEqual(cm.exception.reason,'CANDIDATE_FILE_HASH_MISMATCH')
+    def test_rescue_context_must_be_manifest_bound(self):
+        manifest=self.cfg.candidate_root/'ARTIFACT-HASHES.sha256'
+        lines=[x for x in manifest.read_text().splitlines() if not x.endswith('  zeus-rescue/build-context/Dockerfile')]
+        manifest.write_text('\n'.join(lines)+'\n')
+        q=request(self.root,'build_rescue','8')
+        with self.assertRaises(zha.FailClosed) as cm: self.adapter.execute(q)
+        self.assertEqual(cm.exception.reason,'RESCUE_CONTEXT_NOT_MANIFEST_BOUND')
     def test_build_binds_exact_iid(self):
         r=self.adapter.execute(request(self.root,'build_rescue','2')); self.assertEqual(r['immutable_image_id'],self.fake.image_id); self.assertEqual(self.state.state['last_image_id'],self.fake.image_id)
     def test_duplicate_denied(self):
