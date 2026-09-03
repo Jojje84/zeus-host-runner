@@ -1,0 +1,5 @@
+'use strict';
+const fs=require('fs');
+function check(o){if(!o||o.liveness!=='PASS')return {status:'UNVERIFIED',exit_code:10,reason:'LIVENESS_NOT_PASS'};if(o.recovery_required===true)return {status:'RECOVERY_REQUIRED',exit_code:12,reason:'RECOVERY_REQUIRED'};if(o.socket_path_valid!==true||o.state_dir_valid!==true||o.audit_dir_valid!==true)return {status:'UNVERIFIED',exit_code:11,reason:'RUNTIME_PATH_INVALID'};if(o.image_id_bound!==true)return {status:'UNVERIFIED',exit_code:13,reason:'IMAGE_ID_UNBOUND'};if(o.policy_ambiguous===true)return {status:'UNVERIFIED',exit_code:14,reason:'POLICY_AMBIGUOUS'};return {status:'PASS',exit_code:0,readiness:'PASS',mutation_gate:false}}
+if(require.main===module){let b='';process.stdin.on('data',x=>b+=x);process.stdin.on('end',()=>{try{const r=check(JSON.parse(b));process.stdout.write(JSON.stringify(r)+'\n');process.exit(r.exit_code)}catch(e){process.stdout.write(JSON.stringify({status:'UNVERIFIED',exit_code:65,reason:'INVALID_READINESS_INPUT'})+'\n');process.exit(65)}})}
+module.exports={check};
