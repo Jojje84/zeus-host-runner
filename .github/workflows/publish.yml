@@ -2,6 +2,10 @@ name: build-and-publish-zeus-host-runner
 on:
   workflow_dispatch:
     inputs:
+      source_commit:
+        description: "Exact pinned source commit expected for this build"
+        required: true
+        type: string
       bootstrap_run_id:
         description: "Bootstrap RUN_ID from the host operator"
         required: true
@@ -28,15 +32,31 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
-      - name: Verify locked build-source export
+          persist-credentials: false
+
+      - name: Verify pinned source and locked build-source export
         shell: bash
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
         run: |
           set -Eeuo pipefail
+          [[ "$EXPECTED_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SOURCE_COMMIT"
+
           test -f SOURCE-PROVENANCE.txt && test ! -L SOURCE-PROVENANCE.txt
           test -f BUILD-SOURCE-HASHES.sha256 && test ! -L BUILD-SOURCE-HASHES.sha256
+          test "$(wc -l < SOURCE-PROVENANCE.txt)" -eq 17
+          grep -Fx 'FORMAT=zeus-host-runner-source-provenance-v1' SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx 'EXPORT_KIND=derived-build-context' SOURCE-PROVENANCE.txt >/dev/null
           grep -Fx "CANDIDATE_LOCKED_SHA256=${CANDIDATE_LOCKED_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
           grep -Fx "PRE_WRAPPER_SOURCE_MANIFEST_SHA256=${PRE_WRAPPER_SOURCE_MANIFEST_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
           grep -Fx 'BUILD_CONTEXT_FILE_COUNT=11' SOURCE-PROVENANCE.txt >/dev/null
+
+          test "$(grep -c '^BUILD_SOURCE_MANIFEST_SHA256=' SOURCE-PROVENANCE.txt)" -eq 1
+          provenance_manifest_sha=$(sed -n 's/^BUILD_SOURCE_MANIFEST_SHA256=//p' SOURCE-PROVENANCE.txt)
+          [[ "$provenance_manifest_sha" =~ ^[0-9a-f]{64}$ ]]
+          actual_manifest_sha=$(sha256sum BUILD-SOURCE-HASHES.sha256 | awk '{print $1}')
+          test "$actual_manifest_sha" = "$provenance_manifest_sha"
 
           required=(
             Dockerfile
@@ -62,9 +82,15 @@ jobs:
           awk '{print $2}' BUILD-SOURCE-HASHES.sha256 | LC_ALL=C sort >"$actual"
           diff -u "$expected" "$actual"
 
+          i=0
           for f in "${required[@]}"; do
+            i=$((i+1))
+            key=$(printf 'BUILD_CONTEXT_FILE_%02d' "$i")
+            grep -Fx "${key}=${f}" SOURCE-PROVENANCE.txt >/dev/null
             test -f "$f" && test ! -L "$f"
           done
+          test "$(grep -c '^BUILD_CONTEXT_FILE_[0-9][0-9]=' SOURCE-PROVENANCE.txt)" -eq "${#required[@]}"
+
           sha256sum -c BUILD-SOURCE-HASHES.sha256
 
           rm -rf .ci-build-context
