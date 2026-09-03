@@ -141,14 +141,31 @@ class HostAdapter:
         if not manifest.is_file() or manifest.is_symlink(): raise FailClosed('CANDIDATE_MANIFEST_INVALID',65)
         actual=sha256_file(manifest)
         if actual!=req['expected_hash']: raise FailClosed('CANDIDATE_HASH_MISMATCH',65)
-        return actual
+        try: lines=manifest.read_text(encoding='utf-8').splitlines()
+        except Exception: raise FailClosed('CANDIDATE_MANIFEST_UNREADABLE',65)
+        if not lines: raise FailClosed('CANDIDATE_MANIFEST_EMPTY',65)
+        entries={}
+        for line in lines:
+            m=re.fullmatch(r'([0-9a-f]{64})  ([^\x00\r\n]+)',line)
+            if not m: raise FailClosed('CANDIDATE_MANIFEST_FORMAT',65)
+            digest,rel=m.groups(); rel_path=Path(rel)
+            if rel_path.is_absolute() or '..' in rel_path.parts or rel in entries: raise FailClosed('CANDIDATE_MANIFEST_PATH_INVALID',65)
+            target=root/rel_path
+            try: target.lstat()
+            except FileNotFoundError: raise FailClosed('CANDIDATE_FILE_MISSING',65)
+            if target.is_symlink() or not target.is_file(): raise FailClosed('CANDIDATE_FILE_TYPE_INVALID',65)
+            if sha256_file(target)!=digest: raise FailClosed('CANDIDATE_FILE_HASH_MISMATCH',65)
+            entries[rel]=digest
+        return actual,entries
     def _run(self,argv,timeout):
         return self.runner(argv,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=timeout,check=False,close_fds=True)
     def candidate_preflight(self,req):
-        actual=self.verify_candidate(req); return {'status':'PASS','exit_code':0,'artifact_hashes':[actual]}
+        actual,_=self.verify_candidate(req); return {'status':'PASS','exit_code':0,'artifact_hashes':[actual]}
     def build_rescue(self,req):
-        self.verify_candidate(req)
+        _,entries=self.verify_candidate(req)
         ctx=self.cfg.candidate_root/'zeus-rescue'/'build-context'; expected={'BUILD-METADATA.json','Dockerfile','operations.allowlist','rescue-controller.js'}
+        bound={f'zeus-rescue/build-context/{name}' for name in expected}
+        if not bound.issubset(entries): raise FailClosed('RESCUE_CONTEXT_NOT_MANIFEST_BOUND',65)
         if not ctx.is_dir() or ctx.is_symlink(): raise FailClosed('RESCUE_CONTEXT_INVALID',65)
         names={p.name for p in ctx.iterdir() if p.is_file() and not p.is_symlink()}
         if names!=expected or any(p.is_dir() for p in ctx.iterdir()): raise FailClosed('RESCUE_CONTEXT_ALLOWLIST_MISMATCH',65)
