@@ -1,0 +1,30 @@
+manifestVersion: 1.1
+id: zeus-host-runner
+name: Zeus Host Runner
+tagline: Narrow fail-closed typed request broker
+version: 0.1.0
+description: Candidate-only; image and bootstrap identity must be bound before start.
+developer: Jorge
+category: Utilities
+port: 0
+gallery: []
+releaseNotes: V31-ISO-20260902-002
+dependencies: []
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RUNNER_UID: ${RUNNER_UID:?bootstrap-allocated UID required}
+        RUNNER_GID: ${RUNNER_GID:?bootstrap-allocated GID required}
+    user: "${RUNNER_UID:?bootstrap-allocated UID required}:${RUNNER_GID:?bootstrap-allocated GID required}"
+    read_only: true
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [runner_internal]
+    ports: []
+networks:
+  runner_internal:
+    internal: true

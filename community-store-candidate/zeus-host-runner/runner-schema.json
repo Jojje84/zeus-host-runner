@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operation", "change_id", "candidate_root", "expected_hash", "job_id", "nonce", "expires_at", "requested_by", "idempotency_key"],
+  "properties": {
+    "operation": {"enum": ["candidate_preflight", "build_rescue", "inspect_image", "run_rescue_test", "cleanup_own_temp"]},
+    "change_id": {"type": "string", "pattern": "^V31-[A-Z0-9-]{8,64}$"},
+    "candidate_root": {"type": "string", "pattern": "^/home/umbrel/umbrel/app-data/openclaw/data/zeus-v31-umbrel-candidates-20260902$"},
+    "expected_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,80}$"},
+    "nonce": {"type": "string", "pattern": "^[A-Za-z0-9._-]{16,128}$"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "requested_by": {"const": "zeus-production"},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{16,128}$"}
+  }
+}

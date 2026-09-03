@@ -1,0 +1,6 @@
+id: zeus
+name: Zeus Community App Store (candidate)
+description: Local, unpublished candidate store for review only.
+version: 0.1.0
+apps:
+  - zeus-host-runner

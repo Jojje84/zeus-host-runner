@@ -1,0 +1,6 @@
+'use strict';
+const net=require('net');
+const SOCKET=process.env.RUNNER_SOCKET||'/run/zeus-host-runner/runner.sock';const TIMEOUT=Number(process.env.RUNNER_HEALTH_TIMEOUT_MS||1500);
+function probe(socket=SOCKET,timeout=TIMEOUT){return new Promise(resolve=>{let done=false,b='';const finish=x=>{if(!done){done=true;resolve(x)}};const c=net.createConnection(socket);const timer=setTimeout(()=>{c.destroy();finish({status:'UNVERIFIED',exit_code:124,reason:'LIVENESS_TIMEOUT'})},timeout);c.setEncoding('utf8');c.on('connect',()=>c.end('{"probe":"liveness"}\n'));c.on('data',x=>b+=x);c.on('end',()=>{clearTimeout(timer);try{const r=JSON.parse(b);if(r.status==='PASS'&&r.liveness==='PASS'&&r.mutation_gate===false)finish({status:'PASS',exit_code:0,liveness:'PASS',readiness:'UNVERIFIED',mutation_gate:false});else finish({status:'UNVERIFIED',exit_code:65,reason:'LIVENESS_RESPONSE_INVALID'})}catch(e){finish({status:'UNVERIFIED',exit_code:65,reason:'LIVENESS_RESPONSE_INVALID'})}});c.on('error',()=>{clearTimeout(timer);finish({status:'UNVERIFIED',exit_code:111,reason:'LIVENESS_CONNECT_FAILED'})})})}
+if(require.main===module)probe().then(r=>{process.stdout.write(JSON.stringify(r)+'\n');process.exit(r.exit_code)});
+module.exports={probe};

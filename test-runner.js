@@ -1,0 +1,20 @@
+'use strict';
+const assert=require('assert'); const fs=require('fs'); const os=require('os'); const path=require('path'); const {validate,executeMock}=require('./runner'); const {dispatch}=require('./adapter'); const {FakeBackend}=require('./fake-backend'); const {Lease}=require('./lease');
+const base={operation:'candidate_preflight',change_id:'V31-ISO-20260902-002',candidate_root:'/home/umbrel/umbrel/app-data/openclaw/data/zeus-v31-umbrel-candidates-20260902',expected_hash:'a'.repeat(64),job_id:'j1',nonce:'n'.repeat(16),expires_at:new Date(Date.now()+60000).toISOString(),requested_by:'zeus-production',idempotency_key:'i'.repeat(16)};
+function rc(name,fn){try{fn();console.log(`${name}: PASS`)}catch(e){console.log(`${name}: FAIL ${e.message}`);process.exitCode=1}}
+rc('allow preflight',()=>assert.equal(validate({...base}).status,'PASS'));
+rc('unknown operation',()=>assert.equal(validate({...base,operation:'shell'}).exit_code,64));
+rc('traversal',()=>assert.equal(validate({...base,candidate_root:base.candidate_root+'/../x'}).exit_code,64));
+rc('symlink-like path',()=>assert.equal(validate({...base,candidate_root:'/tmp/link'}).exit_code,64));
+rc('hash mismatch format',()=>assert.equal(validate({...base,expected_hash:'bad'}).exit_code,64));
+rc('expired',()=>assert.equal(validate({...base,expires_at:new Date(Date.now()-1).toISOString()}).exit_code,64));
+rc('duplicate',()=>{executeMock({...base,job_id:'dup'}); assert.equal(executeMock({...base,job_id:'dup'}).exit_code,65)});
+rc('redaction',()=>assert(!require('./runner').redact('token=abc password:xyz').includes('abc')));
+rc('host action fail closed',()=>assert.equal(executeMock({...base,operation:'build_rescue',job_id:'build',idempotency_key:'b'.repeat(16)}).status,'UNVERIFIED'));
+rc('typed backend dispatch',()=>{const b=new FakeBackend();const r=dispatch({...base,job_id:'dispatch',idempotency_key:'d'.repeat(16)},b);assert.equal(r.backend_called,true);assert.equal(b.calls[0].name,'candidate_preflight')});
+rc('denied never reaches backend',()=>{const b=new FakeBackend();const r=dispatch({...base,operation:'shell',job_id:'deny',idempotency_key:'e'.repeat(16)},b);assert.equal(r.backend_called,false);assert.equal(b.calls.length,0)});
+rc('backend error unverified',()=>{const b=new FakeBackend();b.mode='error';const r=dispatch({...base,operation:'inspect_image',job_id:'error',idempotency_key:'f'.repeat(16)},b);assert.equal(r.status,'UNVERIFIED');assert.equal(r.exit_code,70)});
+rc('backend timeout unverified',()=>{const b=new FakeBackend();b.mode='timeout';const r=dispatch({...base,operation:'run_rescue_test',job_id:'timeout',idempotency_key:'g'.repeat(16)},b);assert.equal(r.status,'UNVERIFIED');assert.equal(r.exit_code,124)});
+rc('actual symlink fixture rejected',()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'runner-'));fs.writeFileSync(path.join(d,'real'),'x');fs.symlinkSync('real',path.join(d,'link'));assert(fs.lstatSync(path.join(d,'link')).isSymbolicLink());assert(!fs.statSync(path.join(d,'link')).isSymbolicLink());fs.rmSync(d,{recursive:true,force:true})});
+rc('lease concurrency',()=>{const l=new Lease(100);assert.equal(l.acquire('a',0).ok,true);assert.equal(l.acquire('b',1).state,'busy');assert.equal(l.heartbeat('b',2).state,'recovery_required')});
+rc('stale crash recovery',()=>{const l=new Lease(10);l.acquire('a',0);assert.equal(l.expire(11).state,'recovery_required');assert.equal(l.recover(false).ok,false);assert.equal(l.recover(true).ok,true)});

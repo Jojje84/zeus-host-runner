@@ -1,0 +1,47 @@
+manifestVersion: 1.1
+id: zeus-host-runner
+name: Zeus Host Runner
+tagline: Narrow fail-closed typed request broker
+version: 0.1.0
+description: Candidate-only typed request broker; no Production install or promotion.
+developer: Jorge
+category: Utilities
+port: 0
+gallery: []
+releaseNotes: V31-ISO-20260902-002
+dependencies: []
+services:
+  runner:
+    image: REPLACE_WITH_VERIFIED_HOST_RUNNER_IMAGE
+    user: "${RUNNER_UID:?RUNNER_UID must be allocated and verified by bootstrap}:${RUNNER_GID:?RUNNER_GID must be allocated and verified by bootstrap}"
+    init: true
+    read_only: true
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: on-failure:3
+    cpus: "0.25"
+    mem_limit: 128m
+    pids_limit: 64
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    command: ["node", "/app/daemon.js"]
+    networks: [runner_internal]
+    volumes:
+      - ${RUNNER_STATE}:/runner-state:rw
+      - ${RUNNER_AUDIT}:/runner-audit:rw
+      - ${RUNNER_SOCKET_DIR}:/run/zeus-host-runner:rw
+    environment:
+      RUNNER_MODE: typed-broker-only
+      RUNNER_SOCKET: /run/zeus-host-runner/runner.sock
+      RUNNER_STATE_DIR: /runner-state
+      RUNNER_AUDIT_DIR: /runner-audit
+    healthcheck:
+      test: ["CMD", "node", "/app/healthcheck.js"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 5s
+networks:
+  runner_internal:
+    internal: true

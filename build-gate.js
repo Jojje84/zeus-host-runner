@@ -1,0 +1,5 @@
+'use strict';
+function fail(reason,exit_code=65){return {status:'FAIL',exit_code,reason}}
+function verifyContext(expected,actual){if(!expected||!actual)return fail('CONTEXT_MANIFEST_MISSING');const k=Object.keys(expected);if(k.length!==Object.keys(actual).length||k.some(x=>actual[x]!==expected[x]))return fail('CONTEXT_HASH_MISMATCH');return {status:'PASS',context:'BOUND'}}
+function bindBuild({buildExit,iidText,inspectById}){if(buildExit!==0)return fail('BUILD_FAILED',buildExit||70);if(typeof iidText!=='string')return fail('IIDFILE_MISSING');const id=iidText.trim();if(!/^sha256:[0-9a-f]{64}$/.test(id))return fail('IID_INVALID');if(typeof inspectById!=='function')return fail('INSPECT_NOT_PERFORMED');let x;try{x=inspectById(id)}catch(e){return fail('INSPECT_FAILED',70)}if(!x||x.id!==id)return fail('IMAGE_ID_MISMATCH');return {status:'PASS',image_id:id,repo_digests:Array.isArray(x.repo_digests)?x.repo_digests:[],tag_identity:'REJECTED',identity:'IMAGE_ID_BOUND'} }
+module.exports={bindBuild,verifyContext};

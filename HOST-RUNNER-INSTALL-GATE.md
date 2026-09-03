@@ -1,0 +1,7 @@
+# Host Runner installation gate — V31-ISO-20260902-002
+
+Observed host facts: Umbrel root `/home/umbrel/umbrel`; app-store candidate `/home/umbrel/umbrel/app-data`, owner `umbrel:umbrel`, mode `755`; Docker socket `/var/run/docker.sock`, owner `root:docker`, mode `660`; no Runner paths exist.
+
+These facts do not yet prove a safe install path. Before any mutation, the operator must provide read-only evidence for exactly: supported `umbreld` custom-app/service install API and schema; service/container runtime identity for Runner; the narrow shared Unix-socket path and owner/group/mode that permits only Zeus Production to submit typed requests; Runner state/audit path ownership; and whether a root-owned broker may use the Docker socket without exposing it to Production. No UID/GID, socket mode, supervisor unit, app manifest field or Docker API permission is guessed here.
+
+The extended discovery stopped at the broken `umbreld client … --help` path; that is a tool incompatibility, not host mutation. The replacement read-only discovery subsequently completed with exit 0 and bounded tool, identity, exact-path, socket and supervisor metadata. Host facts are now sufficient for a decision package, but do not authorize mutation. Supported install schema/API, Runner identity, transport/socket ownership, state/audit ownership and Docker authority remain explicit approval items. An installation block that creates a service, group, socket, Docker mount or Umbrel app remains inactive until those items are approved.

@@ -1,0 +1,17 @@
+{
+  "candidate": "zeus-host-runner",
+  "change_id": "V31-ISO-20260902-002",
+  "context_allowlist": ["Dockerfile", "runner.js", "runner-schema.json", "operations.allowlist.json", "adapter.js", "fake-backend.js", "lease.js", "work-queue-bridge.js", "daemon.js", "healthcheck.js", "readiness.js"],
+  "base_image": "node:22.23.1-bookworm-slim",
+  "base_digest": "UNVERIFIED_UNTIL_HOST_INSPECT",
+  "source_mode": "local-only-no-pull",
+  "runtime_user": "BOOTSTRAP_ALLOCATED_RUNNER_UID:BOOTSTRAP_ALLOCATED_RUNNER_GID",
+  "network": "internal-only",
+  "docker_socket": false,
+  "image_digest": "UNVERIFIED_UNTIL_HOST_BUILD",
+  "build_command": "RUNNER_UID=<verified bootstrap UID> RUNNER_GID=<verified bootstrap GID> BUILD-OPERATOR.sh (fresh private WORK/context and newly absent WORK/image.iid; docker build --pull=false)",
+  "inspect_command": "docker image inspect \"$IMAGE_ID\" --format '{{.Id}} {{json .RepoDigests}}'",
+  "identity_rule": "build must exit 0; iidfile must contain sha256:<64hex>; inspect must target exactly that ID; image ID and RepoDigests remain separate; tag is never identity",
+  "operator_script": "BUILD-OPERATOR.sh",
+  "operator_rule": "each invocation uses a fresh private mktemp context and iidfile; failed or ambiguous runs retain work evidence and cannot inspect or accept a tag"
+}

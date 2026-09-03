@@ -1,0 +1,10 @@
+{
+  "operations": {
+    "candidate_preflight": {"mutating": false, "timeout_ms": 30000},
+    "build_rescue": {"mutating": true, "timeout_ms": 180000},
+    "inspect_image": {"mutating": false, "timeout_ms": 30000},
+    "run_rescue_test": {"mutating": false, "timeout_ms": 30000},
+    "cleanup_own_temp": {"mutating": true, "timeout_ms": 10000}
+  },
+  "forbidden": ["install_production", "promote", "restart_production", "arbitrary_command", "docker_exec", "socket_passthrough"]
+}
