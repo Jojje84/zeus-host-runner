@@ -23,8 +23,11 @@ permissions:
   packages: write
 env:
   REGISTRY_IMAGE: ghcr.io/jojje84/zeus-host-runner
-  CANDIDATE_LOCKED_SHA256: c60eed10f328fecf24fc233bddd7856e7c7244e045bebb13bd893b91a97c82e9
+  BASE_CANDIDATE_LOCKED_SHA256: c60eed10f328fecf24fc233bddd7856e7c7244e045bebb13bd893b91a97c82e9
   PRE_WRAPPER_SOURCE_MANIFEST_SHA256: 7576857c51b5d63a71dd64c6e108f4a65e3660c74dc8c03e0442305792c2140e
+  INTEGRATION_SOURCE_COMMIT: b0ac595f03dda1706f726f5b1fbe61b010172226
+  INTEGRATION_MANIFEST_SHA256: 61baad9588626064f76389cdf62ff2067e5a1acf121006f012fcf00a6709f3e1
+  BASE_IMAGE_REFERENCE: node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -34,7 +37,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify pinned source and locked build-source export
+      - name: Verify pinned live-relock build source
         shell: bash
         env:
           EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
@@ -45,12 +48,16 @@ jobs:
 
           test -f SOURCE-PROVENANCE.txt && test ! -L SOURCE-PROVENANCE.txt
           test -f BUILD-SOURCE-HASHES.sha256 && test ! -L BUILD-SOURCE-HASHES.sha256
-          test "$(wc -l < SOURCE-PROVENANCE.txt)" -eq 17
-          grep -Fx 'FORMAT=zeus-host-runner-source-provenance-v1' SOURCE-PROVENANCE.txt >/dev/null
-          grep -Fx 'EXPORT_KIND=derived-build-context' SOURCE-PROVENANCE.txt >/dev/null
-          grep -Fx "CANDIDATE_LOCKED_SHA256=${CANDIDATE_LOCKED_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
+          test "$(wc -l < SOURCE-PROVENANCE.txt)" -eq 20
+          grep -Fx 'FORMAT=zeus-host-runner-source-provenance-v2' SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx 'EXPORT_KIND=live-relock-derived-build-context' SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx "BASE_CANDIDATE_LOCKED_SHA256=${BASE_CANDIDATE_LOCKED_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
           grep -Fx "PRE_WRAPPER_SOURCE_MANIFEST_SHA256=${PRE_WRAPPER_SOURCE_MANIFEST_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx "INTEGRATION_SOURCE_COMMIT=${INTEGRATION_SOURCE_COMMIT}" SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx "INTEGRATION_MANIFEST_SHA256=${INTEGRATION_MANIFEST_SHA256}" SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx "BASE_IMAGE_REFERENCE=${BASE_IMAGE_REFERENCE}" SOURCE-PROVENANCE.txt >/dev/null
           grep -Fx 'BUILD_CONTEXT_FILE_COUNT=11' SOURCE-PROVENANCE.txt >/dev/null
+          grep -Fx "FROM ${BASE_IMAGE_REFERENCE}" Dockerfile >/dev/null
 
           test "$(grep -c '^BUILD_SOURCE_MANIFEST_SHA256=' SOURCE-PROVENANCE.txt)" -eq 1
           provenance_manifest_sha=$(sed -n 's/^BUILD_SOURCE_MANIFEST_SHA256=//p' SOURCE-PROVENANCE.txt)
@@ -64,7 +71,7 @@ jobs:
             runner-schema.json
             operations.allowlist.json
             adapter.js
-            fake-backend.js
+            host-backend-client.js
             lease.js
             work-queue-bridge.js
             daemon.js
@@ -152,4 +159,4 @@ jobs:
           [[ "$REGISTRY_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$REGISTRY_IMAGE" == "ghcr.io/jojje84/zeus-host-runner" ]]
           BUILD_SOURCE_MANIFEST_SHA256=$(sha256sum BUILD-SOURCE-HASHES.sha256 | awk '{print $1}')
-          printf 'BOOTSTRAP_RUN_ID=%s\nGITHUB_RUN_ID=%s\nIMAGE_ID=%s\nREGISTRY_IMAGE=%s\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\nCANDIDATE_LOCKED_SHA256=%s\nPRE_WRAPPER_SOURCE_MANIFEST_SHA256=%s\nBUILD_SOURCE_MANIFEST_SHA256=%s\nRUNNER_UID=%s\nRUNNER_GID=%s\n' "$BOOTSTRAP_RUN_ID" "$GITHUB_RUN_ID" "$IMAGE_ID" "$REGISTRY_IMAGE" "$REGISTRY_DIGEST" "$SOURCE_COMMIT" "$CANDIDATE_LOCKED_SHA256" "$PRE_WRAPPER_SOURCE_MANIFEST_SHA256" "$BUILD_SOURCE_MANIFEST_SHA256" "$RUNNER_UID" "$RUNNER_GID"
+          printf 'BOOTSTRAP_RUN_ID=%s\nGITHUB_RUN_ID=%s\nIMAGE_ID=%s\nREGISTRY_IMAGE=%s\nREGISTRY_DIGEST=%s\nSOURCE_COMMIT=%s\nBASE_CANDIDATE_LOCKED_SHA256=%s\nPRE_WRAPPER_SOURCE_MANIFEST_SHA256=%s\nINTEGRATION_SOURCE_COMMIT=%s\nINTEGRATION_MANIFEST_SHA256=%s\nBASE_IMAGE_REFERENCE=%s\nBUILD_SOURCE_MANIFEST_SHA256=%s\nRUNNER_UID=%s\nRUNNER_GID=%s\n' "$BOOTSTRAP_RUN_ID" "$GITHUB_RUN_ID" "$IMAGE_ID" "$REGISTRY_IMAGE" "$REGISTRY_DIGEST" "$SOURCE_COMMIT" "$BASE_CANDIDATE_LOCKED_SHA256" "$PRE_WRAPPER_SOURCE_MANIFEST_SHA256" "$INTEGRATION_SOURCE_COMMIT" "$INTEGRATION_MANIFEST_SHA256" "$BASE_IMAGE_REFERENCE" "$BUILD_SOURCE_MANIFEST_SHA256" "$RUNNER_UID" "$RUNNER_GID"
