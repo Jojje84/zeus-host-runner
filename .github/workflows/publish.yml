@@ -1,4 +1,5 @@
 name: build-and-publish-zeus-host-runner
+
 on:
   workflow_dispatch:
     inputs:
@@ -18,13 +19,16 @@ on:
         description: "Verified non-privileged host Runner GID"
         required: true
         type: string
+
 permissions:
   contents: read
   packages: write
+
 env:
   REGISTRY_IMAGE: ghcr.io/jojje84/zeus-host-runner
   CANDIDATE_LOCKED_SHA256: c60eed10f328fecf24fc233bddd7856e7c7244e045bebb13bd893b91a97c82e9
   PRE_WRAPPER_SOURCE_MANIFEST_SHA256: 7576857c51b5d63a71dd64c6e108f4a65e3660c74dc8c03e0442305792c2140e
+
 jobs:
   publish:
     runs-on: ubuntu-latest
